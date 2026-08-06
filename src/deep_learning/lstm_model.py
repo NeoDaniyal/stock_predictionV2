@@ -1,4 +1,4 @@
-import tourch
+import torch
 import torch.nn as nn
 
 class StockLSTM(nn.Module):
@@ -35,7 +35,7 @@ class StockLSTM(nn.Module):
         out, _ = self.lstm1(x)
         out = self.dropout1(out)
 
-        out, _ = self.lstm(out)
+        out, _ = self.lstm2(out)
 
         last_step_out = out[:, -1, :]
         last_step_out = self.dropout2(last_step_out)
