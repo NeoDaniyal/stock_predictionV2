@@ -1,3 +1,10 @@
+from pathlib import Path
+import os
+
+# ============================
+# Project Information
+# ============================
+
 TICKERS = [
     "AAPL",
     "MSFT",
@@ -8,13 +15,36 @@ TICKERS = [
     "TSLA",
     "AMD",
     "NFLX",
-    "JPM"
+    "JPM",
 ]
 
 START_DATE = "2014-01-01"
 END_DATE = None
 
-RAW_DATA_PATH = "data/raw"
-PROCESSED_DATA_PATH = "data/processed"
-FEATURE_DATA_PATH = "data/features"
-REPORTS_PATH = "reports"
+# ============================
+# Detect Environment
+# ============================
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+if os.path.exists("/content/drive"):
+    # Google Colab
+    STORAGE_ROOT = Path("/content/drive/MyDrive/ML_Projects/stock_predictionV2")
+else:
+    # Local Machine
+    STORAGE_ROOT = PROJECT_ROOT
+
+# ============================
+# Paths
+# ============================
+
+DATA_DIR = STORAGE_ROOT / "data"
+
+RAW_DATA_PATH = DATA_DIR / "raw"
+PROCESSED_DATA_PATH = DATA_DIR / "processed"
+FEATURE_DATA_PATH = DATA_DIR / "features"
+DEEP_LEARNING_PATH = DATA_DIR / "deep_learning"
+
+MODELS_PATH = STORAGE_ROOT / "models"
+REPORTS_PATH = STORAGE_ROOT / "reports"
+RESULTS_PATH = STORAGE_ROOT / "results"
