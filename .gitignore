@@ -1,0 +1,88 @@
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ==========================
+# Virtual Environment
+# ==========================
+venv/
+.venv/
+env/
+ENV/
+pyvenv.cfg
+
+# ==========================
+# VS Code
+# ==========================
+.vscode/
+*.code-workspace
+
+# ==========================
+# Jupyter
+# ==========================
+.ipynb_checkpoints/
+
+# ==========================
+# Local Data
+# ==========================
+data/raw/*
+data/processed/*
+data/features/*
+data/deep_learning/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/features/.gitkeep
+!data/deep_learning/.gitkeep
+
+# ==========================
+# Trained Models
+# ==========================
+models/*
+!models/.gitkeep
+
+# ==========================
+# Reports (Generated)
+# ==========================
+reports/*.csv
+reports/*.png
+reports/*.json
+
+# Keep README if you have one
+!reports/README.md
+
+# ==========================
+# Results
+# ==========================
+results/*
+
+# ==========================
+# Experiment Tracking
+# ==========================
+catboost_info/
+.mlflow/
+mlruns/
+
+# ==========================
+# TensorBoard
+# ==========================
+runs/
+logs/
+
+# ==========================
+# Temporary Files
+# ==========================
+tempCodeRunnerFile.py
+*.tmp
+
+# ==========================
+# Operating System
+# ==========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Random Forest Reports
+reports/random_forest/
