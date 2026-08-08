@@ -1,3 +1,4 @@
+import os
 import json
 from pathlib import Path
 import joblib
@@ -14,8 +15,11 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-# Dynamic Project Root
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if os.path.exists("/content/drive"):
+    PROJECT_ROOT = Path("/content/drive/MyDrive/ML_Projects/stock_predictionV2")
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 DATA_DIR = PROJECT_ROOT / "data" / "deep_learning"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 MODELS_DIR = PROJECT_ROOT / "models"
