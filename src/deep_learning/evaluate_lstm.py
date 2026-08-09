@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -9,7 +10,12 @@ from sklearn.metrics import (
     log_loss,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if os.path.exists("/content/drive"):
+    PROJECT_ROOT = Path("/content/drive/MyDrive/ML_Projects/stock_predictionV2")
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+DATA_DIR = PROJECT_ROOT / "data" / "deep_learning"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 LSTM_OOF_PATH = REPORTS_DIR / "lstm_oof_predictions.csv"
 
