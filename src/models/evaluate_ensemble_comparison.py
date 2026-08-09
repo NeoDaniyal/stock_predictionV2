@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -11,8 +12,12 @@ from sklearn.metrics import (
     recall_score,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-REPORTS_DIR = PROJECT_ROOT / "reports"
+if os.path.exists("/content/drive"):
+    PROJECT_ROOT = Path("/content/drive/MyDrive/ML_Projects/stock_predictionV2")
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+REPORTS_DIR = PROJECT_ROOT /"reports"
 
 def load_oof_predictions():
     """Loads all model out-of-fold prediction CSV files."""
