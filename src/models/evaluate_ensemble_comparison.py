@@ -18,7 +18,7 @@ def load_oof_predictions():
     oof_data = {}
 
     for m in models:
-        path = REPORTS_DIR / f"{m}_oof_prediction.csv"
+        path = REPORTS_DIR / f"{m}_oof_predictions.csv"
         if not path.exists():
             print(f"Warning: {path} does not exists. Skipping {m}")
             continue
