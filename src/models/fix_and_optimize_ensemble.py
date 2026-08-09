@@ -43,7 +43,7 @@ def audit_and_normalize_probabilities(df: pd.DataFrame, model_name: str) -> pd.D
 
 def load_and_audit_all_oofs():
     """Loads all model OOF files, normalizes probabilities, and prints row count breakdown."""
-    models = ["rf", "xgboost", "lgbm", "catboost", "lstm"]
+    models = ["rf", "xgb", "lgbm", "catboost", "lstm"]
     oof_dict = {}
 
     print("\n================ Step 1: Auditing Probability Integrity ================")
