@@ -43,7 +43,7 @@ def audit_and_normalize_probabilities(df: pd.DataFrame, model_name: str) -> pd.D
 
 def load_and_audit_all_oofs():
     """Loads all model OOF files, normalizes probabilities, and prints row count breakdown."""
-    models = ["rf", "xgboost", "lgbm", "catboost", "lstm"]
+    models = ["rf", "xgb", "lgbm", "catboost", "lstm"]
     oof_dict = {}
 
     print("\n================ Step 1: Auditing Probability Integrity ================")
@@ -79,7 +79,7 @@ def load_and_audit_all_oofs():
 def analyze_sample_mismatch(oof_dict):
     """Investigates why common sample count collapses when combining models."""
     print("\n================ Step 2: Investigating Sample Count Mismatch ================")
-    tree_m = "xgboost"
+    tree_m = "xgb"
     lstm_m = "lstm"
 
     if tree_m not in oof_dict or lstm_m not in oof_dict:
@@ -110,7 +110,7 @@ def analyze_sample_mismatch(oof_dict):
 
 def align_datasets(oof_dict):
     """Inner joins all models on Date and Ticker."""
-    base_m = "xgboost"
+    base_m = "xgb"
     base_df = oof_dict[base_m][["Date", "Ticker", "Target", "Year"]].copy()
 
     for m, df in oof_dict.items():
@@ -163,7 +163,7 @@ def evaluate_blend(df, weights_dict):
 def grid_search_lstm_weight(aligned_df):
     """Grid searches LSTM weight allocation while distributing remainder evenly among tree models."""
     print("\n================ Step 3: Grid Searching LSTM Ensemble Weight ================")
-    tree_models = ["rf", "xgboost", "lgbm", "catboost"]
+    tree_models = ["rf", "xgb", "lgbm", "catboost"]
 
     lstm_weights = [0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.33]
     results = []
