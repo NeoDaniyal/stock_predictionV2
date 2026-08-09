@@ -22,7 +22,7 @@ REPORTS_DIR = PROJECT_ROOT /"reports"
 
 def load_oof_predictions():
     """Loads all model out-of-fold prediction CSV files."""
-    models = ["rf", "xgboost", "lgbm", "catboost", "lstm"]
+    models = ["rf", "xgb", "lgbm", "catboost", "lstm"]
     oof_data = {}
 
     for m in models:
