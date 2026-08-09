@@ -17,7 +17,7 @@ if os.path.exists("/content/drive"):
 else:
     PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-REPORT_DIR = PROJECT_ROOT /"deep_learning"
+REPORTS_DIR = PROJECT_ROOT /"deep_learning"
 
 
 def load_oof_predictions():
