@@ -11,8 +11,12 @@ from sklearn.metrics import (
     recall_score,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-REPORTS_DIR = PROJECT_ROOT / "reports"
+if os.path.exists("/content/drive"):
+    PROJECT_ROOT = Path("/content/drive/MyDrive/ML_Projects/stock_predictionV2")
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+REPORTS_DIR = PROJECT_ROOT /"reports"
 
 
 def audit_and_normalize_probabilities(df: pd.DataFrame, model_name: str) -> pd.DataFrame:
