@@ -14,7 +14,6 @@ from sklearn.metrics import (
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REPORTS_DIR = PROJECT_ROOT / "reports"
 
-
 def load_oof_predictions():
     """Loads all model out-of-fold prediction CSV files."""
     models = ["rf", "xgboost", "lgbm", "catboost", "lstm"]
