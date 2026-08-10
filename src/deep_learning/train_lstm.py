@@ -84,7 +84,7 @@ def create_sequences_for_df(df, feature_cols, sequence_length=30):
 
 def train_and_eval_walk_forward():
     # Load dataset
-    data_path = DATA_DIR / "processed" / "featured_stock_data.csv"
+    data_path = DATA_DIR / "features/final_dataset.csv"
     if not data_path.exists():
         raise FileNotFoundError(f"Featured dataset not found at {data_path}")
 
