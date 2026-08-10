@@ -10,6 +10,7 @@ from sklearn.metrics import (
     classification_report,
     f1_score,
 )
+from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_class_weight
 import torch
 import torch.nn as nn
@@ -20,265 +21,164 @@ if os.path.exists("/content/drive"):
 else:
     PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-DATA_DIR = PROJECT_ROOT / "data" / "deep_learning"
+DATA_DIR = PROJECT_ROOT / "data"
 REPORTS_DIR = PROJECT_ROOT / "reports"
-MODELS_DIR = PROJECT_ROOT / "models"
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+SEQUENCE_LENGTH = 30
+BATCH_SIZE = 64
+EPOCHS = 20
+LR = 0.001
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Import LSTM architecture
 from src.deep_learning.lstm_model import StockLSTM
 
 
-def set_seed(seed=42):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
+class StockLSTM(nn.Module):
+    def __init__(self, input_dim, hidden_dim=64, num_layers=2, num_classes=3, dropout=0.2):
+        super().__init__()
+        self.lstm = nn.LSTM(
+            input_size=input_dim,
+            hidden_size=hidden_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout if num_layers > 1 else 0.0,
+        )
+        self.fc = nn.Linear(hidden_dim, num_classes)
+
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        logits = self.fc(out[:, -1, :])
+        return logits
 
 
-def get_device():
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        print(f"Using GPU: {torch.cuda.get_device_name(0)}")
-    else:
-        device = torch.device("cpu")
-        print("Using CPU")
-    return device
+def create_sequences_for_df(df, feature_cols, sequence_length=30):
+    """Creates 3D sequences (Samples, Seq_Len, Features) per ticker to prevent boundary leakage."""
+    X_seq, y_seq, meta_records = [], [], []
 
-
-def train_one_epoch(
-    model, dataloader, criterion, optimizer, device, clip_grad=1.0
-):
-    model.train()
-    running_loss = 0.0
-    for X_batch, y_batch in dataloader:
-        X_batch, y_batch = X_batch.to(device), y_batch.to(device)
-
-        optimizer.zero_grad()
-        outputs = model(X_batch)
-        loss = criterion(outputs, y_batch)
-        loss.backward()
-
-        if clip_grad > 0:
-            nn.utils.clip_grad_norm_(model.parameters(), clip_grad)
-
-        optimizer.step()
-        running_loss += loss.item() * X_batch.size(0)
-
-    return running_loss / len(dataloader.dataset)
-
-
-def evaluate(model, dataloader, device):
-    model.eval()
-    all_preds = []
-    all_probs = []
-    all_targets = []
-
-    with torch.no_grad():
-        for X_batch, y_batch in dataloader:
-            X_batch = X_batch.to(device)
-            outputs = model(X_batch)
-            probs = torch.softmax(outputs, dim=1)
-            preds = torch.argmax(probs, dim=1)
-
-            all_probs.append(probs.cpu().numpy())
-            all_preds.append(preds.cpu().numpy())
-            all_targets.append(y_batch.numpy())
-
-    all_probs = np.vstack(all_probs)
-    all_preds = np.concatenate(all_preds)
-    all_targets = np.concatenate(all_targets)
-
-    return all_preds, all_probs, all_targets
-
-
-def train_walk_forward(
-    epochs=100,
-    batch_size=128,
-    lr=1e-3,
-    patience=15,
-):
-    set_seed(42)
-    device = get_device()
-
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
-
-    test_years = [2021, 2022, 2023, 2024, 2025, 2026]
-    walk_forward_metrics = []
-    all_oof_preds = []
-
-    for test_year in test_years:
-        fold_dir = DATA_DIR / f"fold_{test_year}"
-        if not fold_dir.exists():
-            print(f"Directory {fold_dir} not found. Skipping fold.")
+    for ticker, group in df.groupby("Ticker"):
+        group = group.sort_values("Date").reset_index(drop=True)
+        if len(group) <= sequence_length:
             continue
 
-        print(
-            f"\n============================================================"
-        )
-        print(f"Training LSTM - Testing Year: {test_year}")
-        print(
-            f"============================================================"
-        )
+        features = group[feature_cols].values
+        targets = group["Target"].values
+        dates = group["Date"].values
 
-        # Load fold data
-        X_train = np.load(fold_dir / "X_train.npy")
-        y_train = np.load(fold_dir / "y_train.npy")
-        X_test = np.load(fold_dir / "X_test.npy")
-        y_test = np.load(fold_dir / "y_test.npy")
-        meta_test = pd.read_csv(fold_dir / "meta_test.csv")
+        for i in range(sequence_length, len(group)):
+            X_seq.append(features[i - sequence_length : i])
+            y_seq.append(targets[i])
+            meta_records.append({
+                "Date": dates[i],
+                "Ticker": ticker,
+                "Target": targets[i],
+                "Year": pd.to_datetime(dates[i]).year
+            })
 
-        # Class weights calculation
-        classes = np.unique(y_train)
-        class_weights = compute_class_weight(
-            class_weight="balanced", classes=classes, y=y_train
-        )
-        class_weights_tensor = torch.tensor(
-            class_weights, dtype=torch.float32
-        ).to(device)
-        print(
-            f"Fold Class Weights: {dict(zip(classes, class_weights.round(4)))}"
-        )
+    if not X_seq:
+        return np.array([]), np.array([]), pd.DataFrame()
 
-        # Prepare PyTorch DataLoaders
-        train_dataset = TensorDataset(
-            torch.tensor(X_train, dtype=torch.float32),
-            torch.tensor(y_train, dtype=torch.long),
-        )
-        test_dataset = TensorDataset(
-            torch.tensor(X_test, dtype=torch.float32),
-            torch.tensor(y_test, dtype=torch.long),
-        )
+    return np.array(X_seq), np.array(y_seq), pd.DataFrame(meta_records)
 
-        train_loader = DataLoader(
-            train_dataset, batch_size=batch_size, shuffle=True
-        )
-        test_loader = DataLoader(
-            test_dataset, batch_size=batch_size, shuffle=False
-        )
 
-        # Model setup
-        input_dim = X_train.shape[2]
-        model = StockLSTM(input_dim=input_dim, dropout=0.3).to(device)
+def train_and_eval_walk_forward():
+    # Load dataset
+    data_path = DATA_DIR / "processed" / "featured_stock_data.csv"
+    if not data_path.exists():
+        raise FileNotFoundError(f"Featured dataset not found at {data_path}")
 
-        criterion = nn.CrossEntropyLoss(weight=class_weights_tensor)
-        optimizer = torch.optim.AdamW(
-            model.parameters(), lr=lr, weight_decay=1e-4
-        )
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="min", factor=0.5, patience=5
-        )
+    df = pd.read_csv(data_path, parse_dates=["Date"])
+    df = df.sort_values(["Ticker", "Date"]).reset_index(drop=True)
 
-        best_loss = float("inf")
-        patience_counter = 0
-        best_model_state = None
+    ignore_cols = ["Date", "Ticker", "Target", "Year"]
+    feature_cols = [c for c in df.columns if c not in ignore_cols]
 
-        # Validation split from training data for early stopping
-        val_size = int(len(train_dataset) * 0.15)
-        train_sub_size = len(train_dataset) - val_size
-        train_sub_ds, val_ds = torch.utils.data.random_split(
-            train_dataset, [train_sub_size, val_size]
-        )
+    tickers = sorted(df["Ticker"].unique())
+    print(f"Loaded dataset with {len(df):,} rows across {len(tickers)} tickers: {tickers}")
 
-        train_sub_loader = DataLoader(
-            train_sub_ds, batch_size=batch_size, shuffle=True
-        )
-        val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
+    all_oof_predictions = []
+    walk_forward_years = [2021, 2022, 2023, 2024, 2025, 2026]
 
-        # Training loop with Early Stopping
-        for epoch in range(1, epochs + 1):
-            train_loss = train_one_epoch(
-                model, train_sub_loader, criterion, optimizer, device
-            )
+    for test_year in walk_forward_years:
+        print(f"\n=================== TRAINING LSTM FOR TEST YEAR {test_year} ===================")
+        train_df = df[df["Date"].dt.year < test_year].copy()
+        test_df = df[df["Date"].dt.year == test_year].copy()
 
-            # Evaluate on validation split
-            model.eval()
-            val_loss = 0.0
-            with torch.no_grad():
-                for X_v, y_v in val_loader:
-                    X_v, y_v = X_v.to(device), y_v.to(device)
-                    v_out = model(X_v)
-                    v_loss = criterion(v_out, y_v)
-                    val_loss += v_loss.item() * X_v.size(0)
-            val_loss /= len(val_loader.dataset)
+        if train_df.empty or test_df.empty:
+            continue
 
-            scheduler.step(val_loss)
+        # Fit Scaler on training features only
+        scaler = StandardScaler()
+        train_df[feature_cols] = scaler.fit_transform(train_df[feature_cols])
+        test_df[feature_cols] = scaler.transform(test_df[feature_cols])
 
-            if val_loss < best_loss:
-                best_loss = val_loss
-                best_model_state = model.state_dict().copy()
-                patience_counter = 0
-            else:
-                patience_counter += 1
+        # Create 3D sequences per ticker
+        X_train, y_train, _ = create_sequences_for_df(train_df, feature_cols, SEQUENCE_LENGTH)
+        X_test, y_test, meta_test = create_sequences_for_df(test_df, feature_cols, SEQUENCE_LENGTH)
 
-            if patience_counter >= patience:
-                print(
-                    f"Early stopping reached at epoch {epoch}. Best Val Loss: {best_loss:.4f}"
-                )
-                break
+        if len(X_train) == 0 or len(X_test) == 0:
+            print(f"Skipping year {test_year} due to insufficient sequence length.")
+            continue
 
-        # Load best weights for out-of-sample testing
-        if best_model_state is not None:
-            model.load_state_dict(best_model_state)
+        # DataLoaders
+        train_dataset = TensorDataset(torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.long))
+        test_dataset = TensorDataset(torch.tensor(X_test, dtype=torch.float32), torch.tensor(y_test, dtype=torch.long))
 
-        # Out-of-Sample Test Evaluation
-        test_preds, test_probs, test_targets = evaluate(
-            model, test_loader, device
-        )
+        train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-        acc = accuracy_score(test_targets, test_preds)
-        bal_acc = balanced_accuracy_score(test_targets, test_preds)
-        macro_f1 = f1_score(test_targets, test_preds, average="macro")
+        # Initialize model
+        model = StockLSTM(input_dim=len(feature_cols)).to(DEVICE)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 
-        print(f"Accuracy: {acc:.4f}")
-        print(f"Balanced Accuracy: {bal_acc:.4f}")
-        print(f"Macro F1: {macro_f1:.4f}")
-        print("\nClassification Report:")
-        print(
-            classification_report(
-                test_targets, test_preds, digits=2, zero_division=0
-            )
-        )
+        # Train loop
+        model.train()
+        for epoch in range(EPOCHS):
+            for X_b, y_b in train_loader:
+                X_b, y_b = X_b.to(DEVICE), y_b.to(DEVICE)
+                optimizer.zero_grad()
+                logits = model(X_b)
+                loss = criterion(logits, y_b)
+                loss.backward()
+                optimizer.step()
 
-        walk_forward_metrics.append(
-            {
-                "Year": test_year,
-                "Accuracy": acc,
-                "Balanced_Accuracy": bal_acc,
-                "Macro_F1": macro_f1,
-            }
-        )
+        # Inference loop
+        model.eval()
+        probs_list = []
+        with torch.no_grad():
+            for X_b, _ in test_loader:
+                X_b = X_b.to(DEVICE)
+                logits = model(X_b)
+                probs = torch.softmax(logits, dim=1).cpu().numpy()
+                probs_list.append(probs)
 
-        # Store test predictions
-        meta_test["Pred_Class"] = test_preds
-        meta_test["Prob_0"] = test_probs[:, 0]
-        meta_test["Prob_1"] = test_probs[:, 1]
-        meta_test["Prob_2"] = test_probs[:, 2]
-        all_oof_preds.append(meta_test)
+        probs_all = np.vstack(probs_list)
+        preds_all = np.argmax(probs_all, axis=1)
 
-        # Save final fold model checkpoint
-        torch.save(
-            model.state_dict(), MODELS_DIR / f"lstm_model_{test_year}.pt"
-        )
+        meta_test["P_SELL"] = probs_all[:, 0]
+        meta_test["P_HOLD"] = probs_all[:, 1]
+        meta_test["P_BUY"] = probs_all[:, 2]
+        meta_test["Prediction"] = preds_all
 
-    # Save summary metrics & OOF predictions
-    wf_df = pd.DataFrame(walk_forward_metrics)
-    oof_df = pd.concat(all_oof_preds, ignore_index=True)
+        acc = accuracy_score(y_test, preds_all)
+        bal_acc = balanced_accuracy_score(y_test, preds_all)
+        f1 = f1_score(y_test, preds_all, average="macro")
 
-    wf_df.to_csv(REPORTS_DIR / "lstm_walk_forward_metrics.csv", index=False)
-    oof_df.to_csv(REPORTS_DIR / "lstm_oof_predictions.csv", index=False)
+        print(f"Fold {test_year} Samples: {len(meta_test):,} | Acc: {acc:.4f} | BalAcc: {bal_acc:.4f} | F1: {f1:.4f}")
+        all_oof_predictions.append(meta_test)
 
-    print(
-        "\n============================================================"
-    )
-    print("LSTM Walk Forward Summary:")
-    print(wf_df.to_string(index=False))
-    print("\nAverage Metrics Across All Folds:")
-    print(wf_df[["Accuracy", "Balanced_Accuracy", "Macro_F1"]].mean())
-    print(
-        "============================================================"
-    )
+    # Save full OOF prediction CSV
+    full_oof_df = pd.concat(all_oof_predictions, ignore_index=True)
+    oof_output_path = REPORTS_DIR / "lstm_oof_predictions.csv"
+    full_oof_df.to_csv(oof_output_path, index=False)
+
+    print(f"\n✅ Completed full multi-ticker LSTM training!")
+    print(f"   Total OOF rows generated: {len(full_oof_df):,}")
+    print(f"   Unique tickers covered ({full_oof_df['Ticker'].nunique()}): {sorted(full_oof_df['Ticker'].unique())}")
+    print(f"   OOF predictions saved to: {oof_output_path}")
 
 
 if __name__ == "__main__":
-    train_walk_forward(epochs=100, batch_size=128, lr=1e-3, patience=15)
+    train_and_eval_walk_forward()
