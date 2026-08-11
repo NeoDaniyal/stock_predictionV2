@@ -48,3 +48,9 @@ DEEP_LEARNING_PATH = DATA_DIR / "deep_learning"
 MODELS_PATH = STORAGE_ROOT / "models"
 REPORTS_PATH = STORAGE_ROOT / "reports"
 RESULTS_PATH = STORAGE_ROOT / "results"
+
+SEQUENCE_LENGTH = 30
+BATCH_SIZE = 64
+EPOCHS = 20
+LR = 0.001
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
