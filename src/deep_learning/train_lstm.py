@@ -91,7 +91,7 @@ def train_and_eval_walk_forward():
     df = pd.read_csv(data_path, parse_dates=["Date"])
     df = df.sort_values(["Ticker", "Date"]).reset_index(drop=True)
 
-    ignore_cols = ["Date", "Ticker", "Target", "Year"]
+    ignore_cols = ["Date", "Ticker", "Target", "Year", "Future_Return", "Target_Threshold"]
     feature_cols = [c for c in df.columns if c not in ignore_cols]
 
     tickers = sorted(df["Ticker"].unique())
