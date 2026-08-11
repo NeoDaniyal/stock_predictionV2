@@ -1,10 +1,14 @@
+import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score, log_loss
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if os.path.exists("/content/drive"):
+    PROJECT_ROOT = Path("/content/drive/MyDrive/ML_Projects/stock_predictionV2")
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
