@@ -4,8 +4,11 @@ import pandas as pd
 from scipy.optimize import minimize
 from sklearn.isotonic import IsotonicRegression
 from sklearn.metrics import log_loss, brier_score_loss
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+import os
+if os.path.exists("/content/drive"):
+    PROJECT_ROOT = Path("/content/drive/MyDrive/ML_Projects/stock_predictionV2")
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REPORTS_DIR = PROJECT_ROOT / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
