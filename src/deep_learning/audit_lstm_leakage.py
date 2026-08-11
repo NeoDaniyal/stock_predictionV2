@@ -40,7 +40,7 @@ class StockLSTM(nn.Module):
 
 def audit_pipeline():
     print("=================== 🔍 AUDITING LSTM PIPELINE FOR LEAKAGE ===================")
-    data_path = DATA_DIR / "processed" / "featured_stock_data.csv"
+    data_path = DATA_DIR / "features/final_dataset.csv"
     df = pd.read_csv(data_path, parse_dates=["Date"])
     df = df.sort_values(["Ticker", "Date"]).reset_index(drop=True)
 
