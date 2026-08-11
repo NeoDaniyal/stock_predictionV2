@@ -44,7 +44,7 @@ def define_feature_subsets(all_features):
 
 
 def run_ablation_experiments():
-    data_path = DATA_DIR / "processed" / "featured_stock_data.csv"
+    data_path = DATA_DIR / "features/final_dataset.csv"
     df = pd.read_csv(data_path, parse_dates=["Date"]).sort_values(["Ticker", "Date"]).reset_index(drop=True)
 
     ignore_cols = ["Date", "Ticker", "Target", "Year", "Future_Return", "Target_Threshold"]
