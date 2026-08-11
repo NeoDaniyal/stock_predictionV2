@@ -51,7 +51,7 @@ def audit_pipeline():
 
     print("\n--- [CHECK 1 & 4] Sequence & Ticker Isolation Audit ---")
     crossover_found = False
-    for ticker, gorup in df.groupby("Ticker"):
+    for ticker, group in df.groupby("Ticker"):
         group = group.sort_values("Date").reset_index(drop=True)
 
         date_diffs = group["Date"].diff().dropna()
