@@ -7,51 +7,58 @@ from sklearn.isotonic import IsotonicRegression
 from sklearn.preprocessing import StandardScaler
 
 def main():
-    # 1. Create output artifacts directory
-    artifacts_dir = Path("artifacts")
+    script_dir = Path(__file__).resolve().parent
+    project_root = script_dir.parents[1] if len(script_dir.parents) > 1 else script_dir
+    
+    artifacts_dir = project_root / "artifacts"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
-    print("📁 Target directory: artifacts/")
+    print(f"📁 Target directory: {artifacts_dir}")
 
-    # 2. Load your prepared training/validation dataset
-    # (Adjust path to match your preprocessed data location)
-    data_path = Path("features/final_dataset.csv") 
-    if not data_path.exists():
-        print(f"❌ Error: Could not find dataset at {data_path}")
+    # Candidate data paths
+    candidate_paths = [
+        project_root / "data" /"features" / "final_dataset.csv",
+        project_root / "reports" / "processed_data.csv",
+        project_root / "data" / "final_dataset.csv",
+        project_root / "final_dataset.csv",
+    ]
+
+    data_path = next((p for p in candidate_paths if p.exists()), None)
+
+    if data_path is None:
+        print("❌ Could not find dataset file.")
         return
 
+    print(f"📊 Loading dataset from: {data_path}")
     df = pd.read_csv(data_path)
     
-    # Define features and target (adjust target name if needed)
     feature_cols = [col for col in df.columns if col not in ["Date", "Ticker", "Target"]]
     X = df[feature_cols]
     y = df["Target"]
 
-    # 3. Train & Save Scaler
+    # 1. Save Feature Column Names
+    joblib.dump(feature_cols, artifacts_dir / "feature_names.pkl")
+    print(f"✅ Saved feature names ({len(feature_cols)} columns)")
+
+    # 2. Train & Save Scaler
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
-    scaler_path = artifacts_dir / "feature_scaler.pkl"
-    joblib.dump(scaler, scaler_path)
-    print(f"✅ Saved scaler to {scaler_path}")
+    X_scaled_df = pd.DataFrame(X_scaled, columns=feature_cols)
+    joblib.dump(scaler, artifacts_dir / "feature_scaler.pkl")
+    print(f"✅ Saved scaler")
 
-    # 4. Train & Save CatBoost Model
+    # 3. Train & Save CatBoost Model
     model = CatBoostClassifier(iterations=500, depth=6, learning_rate=0.05, verbose=0)
-    model.fit(X_scaled, y)
-    
-    model_path = artifacts_dir / "catboost_model.cbm"
-    model.save_model(model_path)
-    print(f"✅ Saved CatBoost model to {model_path}")
+    model.fit(X_scaled_df, y)
+    model.save_model(artifacts_dir / "catboost_model.cbm")
+    print(f"✅ Saved CatBoost model")
 
-    # 5. Fit & Save Isotonic Calibrator
-    # Get raw probabilities on training data (or validation fold)
-    raw_probs = model.predict_proba(X_scaled)[:, 2]  # Buy probability
-    
+    # 4. Fit & Save Isotonic Calibrator
+    raw_probs = model.predict_proba(X_scaled_df)[:, 2]  # Buy probability
     calibrator = IsotonicRegression(out_of_bounds="clip")
-    # Binary indicator for target class 2 (BUY)
     calibrator.fit(raw_probs, (y == 2).astype(int))
-    
-    calibrator_path = artifacts_dir / "isotonic_calibrator.pkl"
-    joblib.dump(calibrator, calibrator_path)
-    print(f"✅ Saved Isotonic calibrator to {calibrator_path}")
+    joblib.dump(calibrator, artifacts_dir / "isotonic_calibrator.pkl")
+    print(f"✅ Saved Isotonic calibrator")
+
     print("\n🎉 All artifacts exported successfully!")
 
 if __name__ == "__main__":
