@@ -254,7 +254,11 @@ def compute_performance_metrics(
 # MAIN PIPELINE EXECUTION
 # =====================================================================
 def main():
-    reports_dir = Path("reports")
+    if os.path.exists("/content/drive"):
+        PROJECT_ROOT = Path("/content/drive/MyDrive/ML_Projects/stock_predictionV2")
+    else:
+        PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    reports_dir = PROJECT_ROOT / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
     oof_path = reports_dir / "oof_predictions.csv"
 
